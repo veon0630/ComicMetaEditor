@@ -6,7 +6,7 @@ import time
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                                QSplitter, QToolBar, QFileDialog, QMessageBox, 
                                QStatusBar, QLabel, QProgressDialog, QApplication,
-                               QDialog, QListWidget, QDialogButtonBox, QInputDialog)
+                               QDialog, QListWidget, QDialogButtonBox, QInputDialog, QWidgetAction, QMenu)
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QActionGroup
 from PySide6.QtCore import Qt, QSize, QItemSelectionModel, QThread, Signal
 
@@ -21,6 +21,23 @@ from ui.workers.save_worker import BatchSaveManager
 from core.translator import translator
 from config import Config
 from utils.logger import logger
+
+# Removed CheckableMenuWidget - using standard checkable QAction instead
+
+
+class UpdateWorker(QThread):
+    finished = Signal(object)
+    
+    def __init__(self, current_version):
+        super().__init__()
+        self.current_version = current_version
+        
+    def run(self):
+        from core.updater import UpdateChecker
+        checker = UpdateChecker()
+        result = checker.check_for_updates(self.current_version)
+        self.finished.emit(result)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -42,6 +59,7 @@ class MainWindow(QMainWindow):
         self.files = []
         self.current_dir = None
         self.loader_worker = None
+        self._update_worker = None
         self.save_manager = None
         self.failed_files = []
         
@@ -50,6 +68,12 @@ class MainWindow(QMainWindow):
         # Connect language change signal
         translator.languageChanged.connect(self.retranslate_ui)
         self.retranslate_ui()
+        
+        # Auto-check for updates on startup (3 seconds after launch)
+        from core.settings_manager import settings_manager
+        from PySide6.QtCore import QTimer
+        if settings_manager.get("check_update_on_startup", True):
+            QTimer.singleShot(3000, lambda: self.check_for_updates(silent=True))
         
     def init_ui(self):
         # Menu Bar
@@ -118,9 +142,25 @@ class MainWindow(QMainWindow):
         # Settings Menu
         self.settings_menu = menubar.addMenu("Settings")
         
+        from core.settings_manager import settings_manager
+        
         self.columns_act = QAction("Customize Columns", self)
         self.columns_act.triggered.connect(self.show_column_settings)
         self.settings_menu.addAction(self.columns_act)
+        
+        # Show toolbar
+        self.show_toolbar_act = QAction("Toolbar", self, checkable=True)
+        self.show_toolbar_act.setChecked(settings_manager.get("toolbar_visible", True))
+        self.show_toolbar_act.triggered.connect(self.toggle_toolbar)
+        self.settings_menu.addAction(self.show_toolbar_act)
+        
+        self.settings_menu.addSeparator()
+        
+        # Check update on startup
+        self.check_update_act = QAction("Check for Updates on Startup", self, checkable=True)
+        self.check_update_act.setChecked(settings_manager.get("check_update_on_startup", True))
+        self.check_update_act.triggered.connect(self.toggle_check_update)
+        self.settings_menu.addAction(self.check_update_act)
         
         # Language Submenu
         self.lang_menu = self.settings_menu.addMenu(translator.tr("Language"))
@@ -159,21 +199,29 @@ class MainWindow(QMainWindow):
         self.help_menu.addAction(self.update_act)
 
         # Toolbar
-        toolbar = QToolBar()
-        toolbar.setIconSize(QSize(20, 20))
-        toolbar.setMovable(False)
-        self.addToolBar(toolbar)
+        self.toolbar = QToolBar(translator.tr("Toolbar"))
+        self.toolbar.setIconSize(QSize(20, 20))
+        self.toolbar.setMovable(False)
+        self.addToolBar(self.toolbar)
+        
+        # Restore toolbar visibility from settings
+        from core.settings_manager import settings_manager
+        toolbar_visible = settings_manager.get("toolbar_visible", True)
+        self.toolbar.setVisible(toolbar_visible)
+        
+        # Connect visibility change to save settings
+        self.toolbar.visibilityChanged.connect(self.on_toolbar_visibility_changed)
         
         # Toolbar Actions
-        toolbar.addAction(self.open_act)
-        toolbar.addAction(self.save_act)
-        toolbar.addAction(self.save_sel_act)
+        self.toolbar.addAction(self.open_act)
+        self.toolbar.addAction(self.save_act)
+        self.toolbar.addAction(self.save_sel_act)
         
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
         
-        toolbar.addAction(self.scrape_act)
-        toolbar.addAction(self.autonum_act)
-        toolbar.addAction(self.convert_act)
+        self.toolbar.addAction(self.scrape_act)
+        self.toolbar.addAction(self.autonum_act)
+        self.toolbar.addAction(self.convert_act)
         
         # Central Widget
         splitter = QSplitter(Qt.Horizontal)
@@ -236,10 +284,15 @@ class MainWindow(QMainWindow):
         self.convert_act.setText(translator.tr("Convert Format"))
         
         self.columns_act.setText(translator.tr("Customize Columns"))
+        self.show_toolbar_act.setText(translator.tr("Toolbar"))
+        self.check_update_act.setText(translator.tr("Check for Updates on Startup"))
         
         self.guide_act.setText(translator.tr("Usage Guide"))
         self.about_act.setText(translator.tr("About"))
         self.update_act.setText(translator.tr("Check for Updates"))
+        
+        if hasattr(self, 'toolbar'):
+            self.toolbar.setWindowTitle(translator.tr("Toolbar"))
         
         self.status_label.setText(translator.tr("Ready"))
         
@@ -248,6 +301,24 @@ class MainWindow(QMainWindow):
             
         if hasattr(self, 'editor'):
             self.editor.retranslate_ui()
+
+    def on_toolbar_visibility_changed(self, visible):
+        """Save toolbar visibility state to settings and sync menu."""
+        from core.settings_manager import settings_manager
+        settings_manager.set("toolbar_visible", visible)
+        # Sync the menu item state (block signals to avoid recursion)
+        if hasattr(self, 'show_toolbar_act'):
+            self.show_toolbar_act.blockSignals(True)
+            self.show_toolbar_act.setChecked(visible)
+            self.show_toolbar_act.blockSignals(False)
+
+    def toggle_toolbar(self, checked):
+        """Toggle toolbar visibility from menu."""
+        self.toolbar.setVisible(checked)
+
+    def toggle_check_update(self, checked):
+        from core.settings_manager import settings_manager
+        settings_manager.set("check_update_on_startup", checked)
 
     def open_folder(self):
         folder = QFileDialog.getExistingDirectory(self, translator.tr("Select Folder"))
@@ -577,57 +648,174 @@ class MainWindow(QMainWindow):
         msg = msg_template.format(version=__version__)
         QMessageBox.about(self, translator.tr("About ComicMeta Editor"), msg)
     
-    def check_for_updates(self):
-        """Check for updates from GitHub."""
+    def check_for_updates(self, silent=False):
+        """
+        Check for updates from GitHub.
+        
+        Args:
+            silent (bool): If True, only show dialog if update found, no progress dialog.
+        """
         from core._version import __version__
-        from core.updater import UpdateChecker
+        
+    def check_for_updates(self, silent=False):
+        """
+        Check for updates from GitHub.
+        
+        Args:
+            silent (bool): If True, only show dialog if update found, no progress dialog.
+        """
+        from core._version import __version__
+        
+        # Check if update check is already in progress
+        if self._update_worker:
+            if self._update_worker.isRunning():
+                # If current check is silent but new request is not (manual check),
+                # upgrade to visible check
+                if not silent and getattr(self, '_update_check_silent', True):
+                    self._update_check_silent = False
+                    self._show_update_progress()
+                return
+            else:
+                # Thread finished but object exists. Wait to ensure full cleanup.
+                self._update_worker.wait()
+
+        self._update_check_silent = silent
+        if not silent:
+            self._show_update_progress()
+            
+        self._update_worker = UpdateWorker(__version__)
+        self._update_worker.finished.connect(self.on_update_check_finished)
+        self._update_worker.start()
+
+    def _show_update_progress(self):
+        if not hasattr(self, '_update_progress') or self._update_progress is None:
+            self._update_progress = QProgressDialog(translator.tr("Checking for updates..."), None, 0, 0, self)
+            self._update_progress.setWindowTitle(translator.tr("Please Wait"))
+            self._update_progress.setWindowModality(Qt.WindowModal)
+            self._update_progress.setCancelButton(None)
+            self._update_progress.setMinimumDuration(0)
+        self._update_progress.show()
+
+    def on_update_check_finished(self, result):
+        from core._version import __version__
         from ui.update_dialog import UpdateDialog
         
-        # Show progress message
-        progress = QProgressDialog(translator.tr("Checking for updates..."), None, 0, 0, self)
-        progress.setWindowModality(Qt.WindowModal)
-        progress.setMinimumDuration(0)
-        progress.setCancelButton(None)
-        progress.show()
-        QApplication.processEvents()
+        if hasattr(self, '_update_progress') and self._update_progress:
+            self._update_progress.close()
+            self._update_progress = None
         
-        # Create worker thread
-        class UpdateWorker(QThread):
-            finished = Signal(object)
-            
-            def __init__(self, current_version):
-                super().__init__()
-                self.current_version = current_version
-                
-            def run(self):
-                checker = UpdateChecker()
-                result = checker.check_for_updates(self.current_version)
-                self.finished.emit(result)
+        # Clean up worker reference
+        if self._update_worker:
+            self._update_worker.wait()
+            self._update_worker = None
         
-        def on_check_complete(result):
-            progress.close()
-            
-            if result is None:
+        if result and result["has_update"]:
+            dialog = UpdateDialog(
+                __version__,
+                result["latest_version"],
+                result["release_notes"],
+                result["download_url"],
+                result.get("is_zip", False),
+                self
+            )
+            if dialog.exec() == QDialog.Accepted:
+                # Check if a file was downloaded
+                if dialog.downloaded_file:
+                    self.perform_update(dialog.downloaded_file)
+        elif not getattr(self, '_update_check_silent', False):
+            if result:
+                QMessageBox.information(self, translator.tr("No Update"), 
+                                      translator.tr("You are using the latest version."))
+            else:
                 QMessageBox.warning(self, translator.tr("Error"), 
-                                  translator.tr("Failed to check for updates."))
+                                  translator.tr("Failed to check for updates. Please check your network connection."))
+
+    def perform_update(self, zip_path):
+        """
+        Extract update and restart application.
+        
+        Args:
+            zip_path (str): Path to the downloaded zip file.
+        """
+        import zipfile
+        import tempfile
+        import subprocess
+        import sys
+        import os
+        
+        try:
+            # 1. Extract to temp directory
+            temp_dir = os.path.join(tempfile.gettempdir(), "ComicMetaEditor_Update_Extracted")
+            if os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir)
+            os.makedirs(temp_dir)
+            
+            logger.info(f"Extracting update to: {temp_dir}")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+            
+            # Find the directory containing the application files
+            # Look for the directory with both ComicMetaEditor.exe and _internal folder
+            source_dir = None
+            required_items = ['ComicMetaEditor.exe', '_internal']
+            
+            for root, dirs, files in os.walk(temp_dir):
+                # Check if this directory contains all required items
+                dir_contents = os.listdir(root)
+                if all(item in dir_contents for item in required_items):
+                    source_dir = root
+                    logger.info(f"Found valid source directory: {source_dir}")
+                    break
+            
+            if not source_dir:
+                raise ValueError("ZIP file does not contain valid application structure (missing ComicMetaEditor.exe or _internal)")
+            
+            # 2. Verify we're running as frozen app
+            if not getattr(sys, 'frozen', False):
+                QMessageBox.warning(self, translator.tr("Update Error"), 
+                                  translator.tr("Cannot update when running from source code."))
                 return
             
-            if result["has_update"]:
-                dialog = UpdateDialog(
-                    __version__,
-                    result["latest_version"],
-                    result["release_notes"],
-                    result["download_url"],
-                    self
-                )
-                dialog.exec()
-            else:
-                QMessageBox.information(self, translator.tr("Info"), 
-                                      translator.tr("You are using the latest version."))
-        
-        worker = UpdateWorker(__version__)
-        worker.finished.connect(on_check_complete)
-        worker.start()
-        
-        # Store worker to prevent garbage collection
-        self._update_worker = worker
+            # 3. Create update script
+            current_exe = sys.executable
+            app_dir = os.path.dirname(current_exe)
+            script_path = os.path.join(app_dir, "update.bat")
+            pid = os.getpid()
+            
+            # Batch script content (with corrected path escaping)
+            # /s - copy subdirectories, /e - include empty dirs, /y - overwrite without prompt, /i - assume destination is directory
+            batch_content = f"""@echo off
+chcp 65001 >nul 2>&1
+echo Waiting for application to close...
+timeout /t 2 /nobreak > NUL
+
+:loop
+tasklist | find " {pid} " > NUL
+if not errorlevel 1 (
+    timeout /t 1 > NUL
+    goto loop
+)
+
+echo Updating files...
+xcopy /s /e /y /i "{source_dir}\\*" "{app_dir}\\"
+
+echo Restarting application...
+start "" "{current_exe}"
+
+del "%~f0"
+"""
+            
+            logger.info(f"Creating update script: {script_path}")
+            with open(script_path, "w", encoding="utf-8") as f:
+                f.write(batch_content)
+            
+            # 4. Run script and exit
+            logger.info("Launching update script and quitting application")
+            subprocess.Popen([script_path], shell=True)
+            QApplication.quit()
+            
+        except Exception as e:
+            logger.error(f"Update failed: {e}")
+            QMessageBox.critical(self, translator.tr("Update Error"), 
+                               translator.tr("Failed to install update: {}").format(str(e)))

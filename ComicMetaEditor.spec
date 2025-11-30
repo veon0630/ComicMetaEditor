@@ -21,6 +21,7 @@ a = Analysis(
         'natsort',
         'zhconv',
         'thefuzz',
+        'packaging',
     ],
     hookspath=[],
     hooksconfig={},

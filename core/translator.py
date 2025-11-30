@@ -1,5 +1,6 @@
-from PySide6.QtCore import QObject, Signal, QSettings
+from PySide6.QtCore import QObject, Signal
 from core.translations import TRANSLATIONS
+from core.settings_manager import settings_manager
 
 class Translator(QObject):
     languageChanged = Signal()
@@ -11,14 +12,12 @@ class Translator(QObject):
         self.load_language()
 
     def load_language(self):
-        settings = QSettings("ComicMetaEditor", "Settings")
-        self._current_lang = settings.value("language", "en_US")
+        self._current_lang = settings_manager.get("language", "en_US")
 
     def set_language(self, lang_code):
         if lang_code in self._translations or lang_code == "en_US":
             self._current_lang = lang_code
-            settings = QSettings("ComicMetaEditor", "Settings")
-            settings.setValue("language", lang_code)
+            settings_manager.set("language", lang_code)
             self.languageChanged.emit()
 
     def tr(self, text, context=None):

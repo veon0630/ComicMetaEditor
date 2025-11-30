@@ -283,4 +283,18 @@ class Styles:
         margin-top: 10px;
         margin-bottom: 5px;
     }
+    
+    /* Progress Bar */
+    QProgressBar {
+        border: none;
+        background-color: #3e3e42;
+        border-radius: 3px;
+        max-height: 4px;
+        text-align: center;
+        color: transparent;
+    }
+    QProgressBar::chunk {
+        background-color: #4CAF50;
+        border-radius: 3px;
+    }
     """

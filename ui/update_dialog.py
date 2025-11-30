@@ -2,7 +2,7 @@
 Update notification dialog for displaying available updates.
 """
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                               QPushButton, QTextEdit, QWidget)
+                               QPushButton, QTextEdit, QWidget, QProgressBar)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 import webbrowser
@@ -13,9 +13,11 @@ from core.translator import translator
 class UpdateDialog(QDialog):
     """Dialog to show update information and provide download link."""
     
-    def __init__(self, current_version, latest_version, release_notes, download_url, parent=None):
+    def __init__(self, current_version, latest_version, release_notes, download_url, is_zip=False, parent=None):
         super().__init__(parent)
         self.download_url = download_url
+        self.is_zip = is_zip
+        self.downloaded_file = None
         self.init_ui(current_version, latest_version, release_notes)
         
     def init_ui(self, current_version, latest_version, release_notes):
@@ -54,11 +56,11 @@ class UpdateDialog(QDialog):
         
         notes_text = QTextEdit()
         notes_text.setReadOnly(True)
-        notes_text.setPlainText(release_notes)
+        notes_text.setMarkdown(release_notes)
         notes_text.setStyleSheet("""
             QTextEdit {
-                background-color: #27272a;
-                border: 1px solid #3f3f46;
+                background-color: #252526;
+                border: 1px solid #3e3e42;
                 border-radius: 4px;
                 padding: 8px;
                 color: #e4e4e7;
@@ -66,12 +68,17 @@ class UpdateDialog(QDialog):
         """)
         layout.addWidget(notes_text)
         
+        # Progress Bar (Hidden by default)
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        layout.addWidget(self.progress_bar)
+        
         # Buttons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         
-        download_btn = QPushButton(translator.tr("Download Update"))
-        download_btn.setStyleSheet("""
+        self.download_btn = QPushButton(translator.tr("Update Now") if self.is_zip else translator.tr("Download Update"))
+        self.download_btn.setStyleSheet("""
             QPushButton {
                 background-color: #2563eb;
                 color: white;
@@ -87,10 +94,10 @@ class UpdateDialog(QDialog):
                 background-color: #1e40af;
             }
         """)
-        download_btn.clicked.connect(self.open_download)
+        self.download_btn.clicked.connect(self.start_update)
         
-        later_btn = QPushButton(translator.tr("Later"))
-        later_btn.setStyleSheet("""
+        self.later_btn = QPushButton(translator.tr("Later"))
+        self.later_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3f3f46;
                 color: white;
@@ -102,15 +109,56 @@ class UpdateDialog(QDialog):
                 background-color: #52525b;
             }
         """)
-        later_btn.clicked.connect(self.reject)
+        self.later_btn.clicked.connect(self.reject)
         
-        button_layout.addWidget(later_btn)
-        button_layout.addWidget(download_btn)
+        button_layout.addWidget(self.later_btn)
+        button_layout.addWidget(self.download_btn)
         
         layout.addLayout(button_layout)
         
-    def open_download(self):
-        """Open the download URL in the default browser."""
-        if self.download_url:
-            webbrowser.open(self.download_url)
+    def start_update(self):
+        """Start download or open browser."""
+        if not self.is_zip:
+            if self.download_url:
+                webbrowser.open(self.download_url)
+            self.accept()
+            return
+            
+        # Start download
+        self.download_btn.setEnabled(False)
+        self.later_btn.setEnabled(False)
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setValue(0)
+        
+        from core.updater import UpdateChecker
+        from PySide6.QtCore import QThread, Signal
+        
+        class DownloadWorker(QThread):
+            progress = Signal(int)
+            finished = Signal(str)
+            
+            def __init__(self, url):
+                super().__init__()
+                self.url = url
+                self.checker = UpdateChecker()
+                
+            def run(self):
+                path = self.checker.download_update(self.url, self.progress.emit)
+                self.finished.emit(path if path else "")
+        
+        self.worker = DownloadWorker(self.download_url)
+        self.worker.progress.connect(self.progress_bar.setValue)
+        self.worker.finished.connect(self.on_download_finished)
+        self.worker.start()
+        
+    def on_download_finished(self, path):
+        if not path:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, translator.tr("Error"), translator.tr("Download failed."))
+            self.download_btn.setEnabled(True)
+            self.later_btn.setEnabled(True)
+            self.progress_bar.setVisible(False)
+            return
+            
+        self.downloaded_file = path
         self.accept()

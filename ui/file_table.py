@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSettings, QSize, QTimer
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSize, QTimer
 from PySide6.QtWidgets import QTableView, QHeaderView, QStyledItemDelegate, QMenu
 from PySide6.QtGui import QColor, QBrush, QPixmap, QImage
 from collections import OrderedDict
@@ -138,23 +138,21 @@ class ComicTableModel(QAbstractTableModel):
         self.visible_columns = self.load_column_settings()
 
     def load_column_settings(self):
-        """Load visible columns from QSettings."""
-        settings = QSettings("ComicMetaEditor", "TableColumns")
-        saved_columns = settings.value("visible_columns", self.DEFAULT_COLUMNS)
+        """Load visible columns from settings.json."""
+        from core.settings_manager import settings_manager
+        saved_columns = settings_manager.get("visible_columns")
         
-        # Validate saved columns
-        if isinstance(saved_columns, list):
-            # Filter out EditStatus (removed in favor of visual indicator)
-            # and validate remaining columns
-            valid_columns = [col for col in saved_columns 
-                           if col in self.AVAILABLE_COLUMNS and col != "EditStatus"]
-            return valid_columns if valid_columns else self.DEFAULT_COLUMNS.copy()
+        if saved_columns:
+            # Validate columns exist
+            valid_columns = [col for col in saved_columns if col in self.AVAILABLE_COLUMNS]
+            if valid_columns:
+                return valid_columns
         return self.DEFAULT_COLUMNS.copy()
 
     def save_column_settings(self):
-        """Save visible columns to QSettings."""
-        settings = QSettings("ComicMetaEditor", "TableColumns")
-        settings.setValue("visible_columns", self.visible_columns)
+        """Save visible columns to settings.json."""
+        from core.settings_manager import settings_manager
+        settings_manager.set("visible_columns", self.visible_columns)
 
     def set_visible_columns(self, columns):
         """Update visible columns and persist the change."""

@@ -23,3 +23,11 @@ logs/
 
 # Local config (if any)
 # config.py # Uncomment if config contains secrets, but for this app it seems to be just settings.
+settings.json
+
+# Update artifacts
+update.bat
+
+# OS generated files
+Thumbs.db
+.DS_Store

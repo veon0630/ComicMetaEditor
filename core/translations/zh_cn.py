@@ -8,6 +8,7 @@ zh_CN = {
     "Tools": "工具",
     "Settings": "设置",
     "Help": "帮助",
+    "Toolbar": "工具栏",
     "Language": "语言",
     
     # Actions
@@ -49,6 +50,7 @@ zh_CN = {
     "No changes to save in selected files.": "选中的文件没有更改需要保存。",
     "Convert to:": "转换为：",
     "Conversion completed with errors.": "转换完成但有错误。",
+    "Saving... {:.1f}%": "正在保存... {:.1f}%",
     "Failed files:": "失败的文件：",
     "Converted {} file(s) to {}": "已将 {} 个文件转换为 {}",
     "No files needed conversion.": "没有文件需要转换。",
@@ -57,23 +59,30 @@ zh_CN = {
     "Failed to apply metadata: {}": "应用元数据失败：{}",
     
     # Update Dialog
+    "Check for Updates on Startup": "启动时检查更新",
     "Update Available": "发现新版本",
     "A new version is available!": "发现新版本！",
-    "Current version: {}": "当前版本：{}",
-    "Latest version: {}": "最新版本：{}",
-    "Release Notes:": "更新说明：",
+    "Current version: {}": "当前版本: {}",
+    "Latest version: {}": "最新版本: {}",
+    "Release Notes:": "更新日志:",
     "Download Update": "下载更新",
+    "Update Now": "立即更新",
     "Later": "稍后",
     "Checking for updates...": "正在检查更新...",
-    "You are using the latest version.": "您已使用最新版本。",
-    "Failed to check for updates.": "检查更新失败。",
+    "Please Wait": "请稍候",
+    "No Update": "无更新",
+    "You are using the latest version.": "您正在使用最新版本。",
+    "Failed to check for updates. Please check your network connection.": "检查更新失败，请检查网络连接。",
+    "Update Error": "更新错误",
+    "Failed to install update: {}": "安装更新失败: {}",
+    "Cannot update when running from source code.": "源代码运行模式下无法自动更新。",
+    "Download failed.": "下载失败。",
     
     # Status Bar
     "Ready": "就绪",
     "Loading... {}/{}": "正在加载... {}/{}",
     "Loaded {} files": "已加载 {} 个文件",
     "Selected {} files": "已选择 {} 个文件",
-    "Saving... {:.1f}%": "正在保存... {:.1f}%",
     
     # About & Help
     "About ComicMeta Editor": "关于 ComicMeta Editor",

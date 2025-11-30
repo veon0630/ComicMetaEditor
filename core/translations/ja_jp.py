@@ -8,6 +8,7 @@ ja_JP = {
     "Tools": "ツール",
     "Settings": "設定",
     "Help": "ヘルプ",
+    "Toolbar": "ツールバー",
     "Language": "言語",
     
     # Actions
@@ -49,6 +50,7 @@ ja_JP = {
     "No changes to save in selected files.": "選択したファイルに変更はありません。",
     "Convert to:": "変換先：",
     "Conversion completed with errors.": "変換が完了しましたが、エラーが発生しました。",
+    "Saving... {:.1f}%": "保存中... {:.1f}%",
     "Failed files:": "失敗したファイル：",
     "Converted {} file(s) to {}": "{} ファイルを {} に変換しました",
     "No files needed conversion.": "変換が必要なファイルはありません。",
@@ -57,23 +59,30 @@ ja_JP = {
     "Failed to apply metadata: {}": "メタデータの適用に失敗しました：{}",
     
     # Update Dialog
+    "Check for Updates on Startup": "起動時に更新を確認",
     "Update Available": "アップデート利用可能",
     "A new version is available!": "新しいバージョンが利用可能です！",
-    "Current version: {}": "現在のバージョン：{}",
-    "Latest version: {}": "最新バージョン：{}",
-    "Release Notes:": "リリースノート：",
-    "Download Update": "アップデートをダウンロード",
+    "Current version: {}": "現在のバージョン: {}",
+    "Latest version: {}": "最新バージョン: {}",
+    "Release Notes:": "リリースノート:",
+    "Download Update": "更新をダウンロード",
+    "Update Now": "今すぐ更新",
     "Later": "後で",
     "Checking for updates...": "更新を確認中...",
+    "Please Wait": "お待ちください",
+    "No Update": "更新なし",
     "You are using the latest version.": "最新バージョンを使用しています。",
-    "Failed to check for updates.": "更新の確認に失敗しました。",
+    "Failed to check for updates. Please check your network connection.": "更新の確認に失敗しました。ネットワーク接続を確認してください。",
+    "Update Error": "更新エラー",
+    "Failed to install update: {}": "更新のインストールに失敗しました: {}",
+    "Cannot update when running from source code.": "ソースコードから実行している場合、自動更新はできません。",
+    "Download failed.": "ダウンロードに失敗しました。",
     
     # Status Bar
     "Ready": "準備完了",
     "Loading... {}/{}": "読み込み中... {}/{}",
     "Loaded {} files": "{} ファイルを読み込みました",
     "Selected {} files": "{} ファイルを選択中",
-    "Saving... {:.1f}%": "保存中... {:.1f}%",
     
     # About
     "About ComicMeta Editor": "ComicMeta Editor について",

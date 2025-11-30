@@ -8,6 +8,7 @@ en_US = {
     "Tools": "Tools",
     "Settings": "Settings",
     "Help": "Help",
+    "Toolbar": "Toolbar",
     "Language": "Language",
     
     # Actions
@@ -57,16 +58,24 @@ en_US = {
     "Failed to apply metadata: {}": "Failed to apply metadata: {}",
     
     # Update Dialog
+    "Check for Updates on Startup": "Check for Updates on Startup",
     "Update Available": "Update Available",
     "A new version is available!": "A new version is available!",
     "Current version: {}": "Current version: {}",
     "Latest version: {}": "Latest version: {}",
     "Release Notes:": "Release Notes:",
     "Download Update": "Download Update",
+    "Update Now": "Update Now",
     "Later": "Later",
     "Checking for updates...": "Checking for updates...",
+    "Please Wait": "Please Wait",
+    "No Update": "No Update",
     "You are using the latest version.": "You are using the latest version.",
-    "Failed to check for updates.": "Failed to check for updates.",
+    "Failed to check for updates. Please check your network connection.": "Failed to check for updates. Please check your network connection.",
+    "Update Error": "Update Error",
+    "Failed to install update: {}": "Failed to install update: {}",
+    "Cannot update when running from source code.": "Cannot update when running from source code.",
+    "Download failed.": "Download failed.",
     
     # Status Bar
     "Ready": "Ready",
@@ -75,7 +84,6 @@ en_US = {
     "Selected {} files": "Selected {} files",
     "Saving... {:.1f}%": "Saving... {:.1f}%",
     
-    # About & Help
     "About ComicMeta Editor": "About ComicMeta Editor",
     
     # Table Columns
@@ -154,6 +162,7 @@ en_US = {
     "Reset to Default": "Reset to Default",
     "OK": "OK",
     
+    # Long Text (Help & About)
     "USAGE_GUIDE_HTML": """
     <h3>Usage Guide</h3>
     
