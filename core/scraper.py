@@ -85,7 +85,16 @@ class SlideWindowCounter:
             return True
         return False
 
-def slide_window_rate_limiter(max_requests: int = 90, window_seconds: float = 60, max_retries: int = 3, delay: float = 1):
+def slide_window_rate_limiter(max_requests: int = 60, window_seconds: float = 60, max_retries: int = 5, base_delay: float = 2):
+    """
+    Rate limiter with exponential backoff.
+    
+    Args:
+        max_requests: Maximum requests allowed in the time window (default: 60)
+        window_seconds: Time window in seconds (default: 60)
+        max_retries: Maximum retry attempts (default: 5)
+        base_delay: Base delay in seconds for exponential backoff (default: 2)
+    """
     def decorator(func):
         limiter = SlideWindowCounter(max_requests, window_seconds)
         @wraps(func)
@@ -97,7 +106,10 @@ def slide_window_rate_limiter(max_requests: int = 90, window_seconds: float = 60
                 if retries >= max_retries:
                     logger.warning(f"Rate limit exceeded after {max_retries} retries.")
                     return None
-                time.sleep(delay)
+                # Exponential backoff: 2s, 4s, 8s, 16s, 32s
+                wait_time = base_delay * (2 ** retries)
+                logger.info(f"Rate limit reached, waiting {wait_time}s before retry {retries + 1}/{max_retries}...")
+                time.sleep(wait_time)
                 retries += 1
         return wrapper
     return decorator
@@ -220,19 +232,70 @@ class BangumiScraper:
         if access_token:
             self.session.headers["Authorization"] = f"Bearer {access_token}"
 
+    def _request_with_retry(self, method, url, max_retries=3, **kwargs):
+        """
+        Make HTTP request with automatic retry on 429 (rate limit) errors.
+        
+        Args:
+            method: 'get' or 'post'
+            url: Request URL
+            max_retries: Maximum retry attempts for 429 errors
+            **kwargs: Additional arguments passed to requests
+        
+        Returns:
+            Response object
+        """
+        kwargs.setdefault('timeout', self.timeout)
+        
+        for attempt in range(max_retries + 1):
+            try:
+                if method == 'get':
+                    response = self.session.get(url, **kwargs)
+                else:
+                    response = self.session.post(url, **kwargs)
+                
+                if response.status_code == 429:
+                    if attempt < max_retries:
+                        wait_time = 2 ** (attempt + 1)  # 2, 4, 8 seconds
+                        logger.warning(f"Rate limit (429) hit, waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error("Rate limit (429) exceeded after all retries")
+                        response.raise_for_status()
+                
+                response.raise_for_status()
+                return response
+                
+            except requests.exceptions.HTTPError:
+                if response.status_code == 429 and attempt < max_retries:
+                    continue
+                raise
+        
+        return response
+
     @slide_window_rate_limiter()
     def search_subjects(self, query, threshold=60): # Lowered threshold slightly
         logger.info(f"Scraper searching for: {query}")
         query_cn = convert(query, "zh-cn")
-        url = f"{self.BASE_URL}/search/subject/{quote_plus(query_cn)}?responseGroup=small&type=1&max_results=15"
+        
+        # Use v0 Search API for better token support (NSFW)
+        url = f"{self.BASE_URL}/v0/search/subjects"
+        payload = {
+            "keyword": query_cn,
+            "filter": {
+                "type": [1]  # Book/Comic
+            },
+            "limit": 15
+        }
         
         try:
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
+            # v0 search is POST with retry on 429
+            response = self._request_with_retry('post', url, json=payload)
             data = response.json()
             
-            if "list" in data and data["list"]:
-                results = data["list"]
+            if "data" in data and data["data"]:
+                results = data["data"]
                 logger.info(f"Search returned {len(results)} raw results for: {query}")
                 # Resort and filter
                 return resort_search_list(query_cn, results, threshold, self)
@@ -247,9 +310,6 @@ class BangumiScraper:
             logger.error(f"Connection failed for search query: {query}")
             raise Exception("Unable to connect to Bangumi API. Please check your network connection.")
         except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:
-                logger.warning(f"Rate limit exceeded (429) during search. Waiting...")
-                time.sleep(2) # Simple backoff
             logger.error(f"HTTP error during search: {e}")
             raise Exception(f"Bangumi API returned an error: {e.response.status_code}")
         except Exception as e:
@@ -265,8 +325,7 @@ class BangumiScraper:
         logger.info(f"Fetching metadata for subject ID: {subject_id}")
         url = f"{self.BASE_URL}/v0/subjects/{subject_id}"
         try:
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._request_with_retry('get', url)
             data = response.json()
             
             # Cache the result
@@ -296,8 +355,7 @@ class BangumiScraper:
         logger.info(f"Fetching related subjects for ID: {subject_id}")
         url = f"{self.BASE_URL}/v0/subjects/{subject_id}/subjects"
         try:
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
+            response = self._request_with_retry('get', url)
             data = response.json()
             
             # Cache the result

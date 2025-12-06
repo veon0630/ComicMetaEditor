@@ -57,6 +57,24 @@ zh_CN = {
     "Applying metadata...": "正在应用元数据...",
     "Applied metadata to {} files.": "已将元数据应用到 {} 个文件。",
     "Failed to apply metadata: {}": "应用元数据失败：{}",
+    "Scraping completed with errors.": "刮削完成但有错误。",
+    "Scraping Completed": "刮削完成",
+    
+    # Bangumi Settings
+    "Bangumi Settings": "Bangumi 设置",
+    "Access Token": "访问令牌 (Access Token)",
+    "Enter your Bangumi Access Token to increase rate limits and access NSFW content.": "输入您的 Bangumi 访问令牌以访问 NSFW (R18) 内容。",
+    "Show Token": "显示令牌",
+    "Hide Token": "隐藏令牌",
+    "Test Token": "测试令牌",
+    "Testing...": "正在测试...",
+    "Please enter a token first.": "请先输入令牌。",
+    "Token is valid!\n\nUser: {}\nID: {}": "令牌有效！\n\n用户: {}\nID: {}",
+    "Invalid token. Please check and try again.": "令牌无效。请检查并重试。",
+    "Token test failed (HTTP {}).": "令牌测试失败 (HTTP {})。",
+    "Connection failed: {}": "连接失败：{}",
+    "token_guide_html": "您需要先<a href='https://bgm.tv/login'>登录 Bangumi</a>，然后<a href='https://next.bgm.tv/demo/access-token'>在此页面获取 Access Token</a>。",
+    "Save": "保存",
     
     # Update Dialog
     "Check for Updates on Startup": "启动时检查更新",
@@ -209,6 +227,7 @@ zh_CN = {
     </ul>
     
     <p><b>开发者：</b> DAZAO</p>
+    <p><b>GitHub：</b> <a href="https://github.com/veon0630/ComicMetaEditor">veon0630/ComicMetaEditor</a></p>
     <p><b>数据源：</b> <a href="https://bgm.tv">Bangumi</a></p>
     <p>Copyright © 2025 DAZAO</p>
     """

@@ -422,7 +422,11 @@ class ScraperDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(translator.tr("Bangumi Scraper"))
         self.resize(1100, 700) # Increased size for sidebar
-        self.scraper = BangumiScraper()
+        
+        from core.settings_manager import settings_manager
+        token = settings_manager.get("bangumi_token")
+        self.scraper = BangumiScraper(access_token=token)
+        
         self.initial_query = initial_query
         self._threads = []
         self._current_search_thread = None

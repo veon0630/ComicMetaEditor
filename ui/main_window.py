@@ -18,6 +18,7 @@ from ui.scraper_dialog import ScraperDialog
 from ui.styles import Styles
 from ui.workers.loader_worker import FileLoaderWorker
 from ui.workers.save_worker import BatchSaveManager
+from ui.workers.scrape_worker import BatchScrapeWorker
 from core.translator import translator
 from config import Config
 from utils.logger import logger
@@ -144,15 +145,21 @@ class MainWindow(QMainWindow):
         
         from core.settings_manager import settings_manager
         
-        self.columns_act = QAction("Customize Columns", self)
+        self.columns_act = QAction(translator.tr("Customize Columns"), self)
         self.columns_act.triggered.connect(self.show_column_settings)
         self.settings_menu.addAction(self.columns_act)
         
         # Show toolbar
-        self.show_toolbar_act = QAction("Toolbar", self, checkable=True)
+        self.show_toolbar_act = QAction(translator.tr("Toolbar"), self, checkable=True)
         self.show_toolbar_act.setChecked(settings_manager.get("toolbar_visible", True))
         self.show_toolbar_act.triggered.connect(self.toggle_toolbar)
         self.settings_menu.addAction(self.show_toolbar_act)
+        
+        self.settings_menu.addSeparator()
+        
+        self.bangumi_settings_act = QAction(translator.tr("Bangumi Settings"), self)
+        self.bangumi_settings_act.triggered.connect(self.show_bangumi_settings)
+        self.settings_menu.addAction(self.bangumi_settings_act)
         
         self.settings_menu.addSeparator()
         
@@ -285,6 +292,7 @@ class MainWindow(QMainWindow):
         
         self.columns_act.setText(translator.tr("Customize Columns"))
         self.show_toolbar_act.setText(translator.tr("Toolbar"))
+        self.bangumi_settings_act.setText(translator.tr("Bangumi Settings"))
         self.check_update_act.setText(translator.tr("Check for Updates on Startup"))
         
         self.guide_act.setText(translator.tr("Usage Guide"))
@@ -403,37 +411,69 @@ class MainWindow(QMainWindow):
     def apply_scrape_result(self, bangumi_data, mode, indexes, options):
         logger.info(f"Applying scraped metadata (mode={mode}) to {len(indexes)} files")
         
-        from core.scraper import BangumiScraper
-        scraper = BangumiScraper()
+        # Create and start worker
+        from core.settings_manager import settings_manager
+        token = settings_manager.get("bangumi_token")
+        self.scrape_worker = BatchScrapeWorker(self.files, indexes, bangumi_data, mode, options, access_token=token)
+
         
-        progress = QProgressDialog(translator.tr("Applying metadata..."), "Cancel", 0, len(indexes), self)
-        progress.setWindowModality(Qt.WindowModal)
-        progress.show()
-        QApplication.processEvents()
+        # Setup progress dialog
+        self.scrape_progress = QProgressDialog(translator.tr("Applying metadata..."), translator.tr("Cancel"), 0, len(indexes), self)
+        self.scrape_progress.setWindowModality(Qt.WindowModal)
+        self.scrape_progress.setMinimumDuration(0)
+        self.scrape_progress.canceled.connect(self.scrape_worker.cancel)
+        
+        # Connect signals
+        self.scrape_worker.progress_updated.connect(self.on_scrape_progress)
+        self.scrape_worker.finished.connect(lambda s, f: self.on_scrape_finished(s, f, indexes))
+        self.scrape_worker.error_occurred.connect(self.on_scrape_error)
+        
+        self.scrape_worker.start()
 
-        try:
-            def progress_callback(current_idx):
-                if progress.wasCanceled():
-                    return True # Cancelled
-                progress.setValue(current_idx + 1)
-                return False
+    def on_scrape_progress(self, current, total):
+        if hasattr(self, 'scrape_progress'):
+            self.scrape_progress.setMaximum(total)
+            self.scrape_progress.setValue(current)
 
-            count = CommandManager.apply_scraped_data(
-                self.files, indexes, bangumi_data, mode, options, scraper, progress_callback
-            )
+    def on_scrape_finished(self, success_count, failed_list, indexes):
+        if hasattr(self, 'scrape_progress'):
+            self.scrape_progress.close()
             
-            # Refresh UI
-            for idx in indexes:
-                self.model.refresh_row(idx.row())
-                
-            QMessageBox.information(self, translator.tr("Success"), translator.tr("Applied metadata to {} files.").format(count))
-            logger.info(f"Successfully applied scraped metadata to {count} files")
-            self.on_selection_changed()
+        # Refresh UI
+        for idx in indexes:
+            self.model.refresh_row(idx.row())
+        
+        # Show results based on success/failure counts
+        total = len(indexes)
+        if failed_list:
+            # Some files failed
+            error_lines = [f"{name}: {err}" for name, err in failed_list[:10]]  # Show max 10 failures
+            error_text = "\n".join(error_lines)
             
-        except Exception as e:
-            QMessageBox.critical(self, translator.tr("Error"), translator.tr("Failed to apply metadata: {}").format(e))
-        finally:
-            progress.close()
+            if len(failed_list) > 10:
+                error_text += f"\n... and {len(failed_list) - 10} more"
+            
+            msg = translator.tr("Scraping completed with errors.") + "\n\n" \
+                  f"{translator.tr('Success')}: {success_count}/{total}\n" \
+                  f"{translator.tr('Failed')}: {len(failed_list)}/{total}\n\n" \
+                  f"{translator.tr('Failed files:')}\n{error_text}"
+            
+            QMessageBox.warning(self, translator.tr("Scraping Completed"), msg)
+            logger.warning(f"Scraping finished with errors: {success_count} success, {len(failed_list)} failed")
+        else:
+            # All successful
+            QMessageBox.information(self, translator.tr("Success"), translator.tr("Applied metadata to {} files.").format(success_count))
+            logger.info(f"Successfully applied scraped metadata to {success_count} files")
+        
+        self.on_selection_changed()
+        self.scrape_worker = None
+
+    def on_scrape_error(self, error_msg):
+        if hasattr(self, 'scrape_progress'):
+            self.scrape_progress.close()
+        QMessageBox.critical(self, translator.tr("Error"), translator.tr("Failed to apply metadata: {}").format(error_msg))
+        logger.error(f"Scraping failed with exception: {error_msg}")
+        self.scrape_worker = None
 
     def auto_number(self):
         if not self.files:
@@ -819,3 +859,9 @@ del "%~f0"
             logger.error(f"Update failed: {e}")
             QMessageBox.critical(self, translator.tr("Update Error"), 
                                translator.tr("Failed to install update: {}").format(str(e)))
+
+    def show_bangumi_settings(self):
+        from ui.settings_dialog import SettingsDialog
+        dialog = SettingsDialog(self)
+        dialog.exec()
+

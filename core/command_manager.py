@@ -71,10 +71,15 @@ class CommandManager:
     @staticmethod
     def apply_scraped_data(files: list[ComicFile], indexes: list, bangumi_data: dict, 
                           mode: str, options: dict, scraper: BangumiScraper, 
-                          progress_callback=None) -> int:
+                          progress_callback=None) -> tuple[int, list[tuple[str, str]]]:
         """
         Apply scraped metadata to files.
         Handles Series and Volume modes, fetching extra data as needed.
+        
+        Returns:
+            tuple: (success_count, failed_list)
+                - success_count: number of files successfully scraped
+                - failed_list: list of (filename, error_reason) tuples for failures
         """
         selected_fields = options.get("fields", [])
         
@@ -103,7 +108,8 @@ class CommandManager:
                 allowed_keys.update(comic_keys)
 
         should_apply_cover = "Cover" in selected_fields
-        count = 0
+        success_count = 0
+        failed_list = []
 
         if mode == 'series':
             # 1. Fetch Series Info
@@ -128,49 +134,63 @@ class CommandManager:
                 
                 if idx.row() >= len(files): continue
                 file_obj = files[idx.row()]
+                filename = file_obj.file_path.name
                 
-                # Determine number
-                num_str = file_obj.get_metadata("Number")
-                if not num_str:
-                    num_val, _ = get_number(file_obj.file_path.stem)
-                else:
-                    num_val, _ = get_number(num_str)
-                
-                # Base info
-                final_info = series_info.copy()
-                final_info["Genre"] = series_tags
-                final_info["Tags"] = ""
-                
-                # Match volume
-                if num_val is not None and num_val in volume_map:
-                    vol_data = volume_map[num_val]
-                    try:
-                        full_vol = scraper.get_subject_metadata(vol_data['id'])
-                        if full_vol:
-                            vol_info = MetadataMapper.bangumi_to_comicinfo(full_vol)
-                            final_info.update(vol_info)
-                            final_info["Series"] = series_info["Series"]
-                            final_info["Number"] = MetadataMapper._format_number(num_val)
-                            final_info["Volume"] = MetadataMapper._format_number(num_val)
-                            if total_count > 0:
-                                final_info["Count"] = total_count
-                            
-                            final_info["Genre"] = series_tags
-                            final_info["Tags"] = vol_info.get("Tags", "")
-                            
-                            if should_apply_cover:
-                                cover_data = scraper.get_subject_cover(vol_data['id'])
-                                if cover_data:
-                                    file_obj.set_custom_cover(cover_data)
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch volume details: {e}")
-                        
-                # Apply metadata
-                for key, val in final_info.items():
-                    if key in allowed_keys and val:
-                        file_obj.set_metadata(key, val)
-                
-                count += 1
+                try:
+                    # Determine number
+                    num_str = file_obj.get_metadata("Number")
+                    if not num_str:
+                        num_val, _ = get_number(file_obj.file_path.stem)
+                    else:
+                        num_val, _ = get_number(num_str)
+                    
+                    # Base info
+                    final_info = series_info.copy()
+                    final_info["Genre"] = series_tags
+                    final_info["Tags"] = ""
+                    
+                    volume_fetched = False
+                    # Match volume
+                    if num_val is not None and num_val in volume_map:
+                        vol_data = volume_map[num_val]
+                        try:
+                            full_vol = scraper.get_subject_metadata(vol_data['id'])
+                            if full_vol:
+                                vol_info = MetadataMapper.bangumi_to_comicinfo(full_vol)
+                                final_info.update(vol_info)
+                                final_info["Series"] = series_info["Series"]
+                                final_info["Number"] = MetadataMapper._format_number(num_val)
+                                final_info["Volume"] = MetadataMapper._format_number(num_val)
+                                if total_count > 0:
+                                    final_info["Count"] = total_count
+                                
+                                final_info["Genre"] = series_tags
+                                final_info["Tags"] = vol_info.get("Tags", "")
+                                volume_fetched = True
+                                
+                                if should_apply_cover:
+                                    cover_data = scraper.get_subject_cover(vol_data['id'])
+                                    if cover_data:
+                                        file_obj.set_custom_cover(cover_data)
+                            else:
+                                # API returned None (rate limit or error)
+                                failed_list.append((filename, "Rate limit or API error"))
+                                logger.warning(f"Failed to fetch metadata for {filename}: API returned None")
+                                continue
+                        except Exception as e:
+                            failed_list.append((filename, f"Volume fetch error: {str(e)}"))
+                            logger.warning(f"Failed to fetch volume details for {filename}: {e}")
+                            continue
+                    
+                    # Apply metadata
+                    for key, val in final_info.items():
+                        if key in allowed_keys and val:
+                            file_obj.set_metadata(key, val)
+                    
+                    success_count += 1
+                except Exception as e:
+                    failed_list.append((filename, f"Unexpected error: {str(e)}"))
+                    logger.error(f"Unexpected error processing {filename}: {e}")
 
         elif mode == 'volume':
             # 1. Fetch Full Volume Info
@@ -214,18 +234,23 @@ class CommandManager:
                 
                 if idx.row() >= len(files): continue
                 file_obj = files[idx.row()]
+                filename = file_obj.file_path.name
                 
-                existing_series = file_obj.get_metadata("Series")
-                
-                for key, val in vol_info.items():
-                    if key in allowed_keys and val:
-                        if key == "Series" and not series_name and existing_series:
-                            continue
-                        file_obj.set_metadata(key, val)
-                
-                if cover_data:
-                    file_obj.set_custom_cover(cover_data)
+                try:
+                    existing_series = file_obj.get_metadata("Series")
                     
-                count += 1
+                    for key, val in vol_info.items():
+                        if key in allowed_keys and val:
+                            if key == "Series" and not series_name and existing_series:
+                                continue
+                            file_obj.set_metadata(key, val)
+                    
+                    if cover_data:
+                        file_obj.set_custom_cover(cover_data)
+                        
+                    success_count += 1
+                except Exception as e:
+                    failed_list.append((filename, f"Apply error: {str(e)}"))
+                    logger.error(f"Failed to apply metadata to {filename}: {e}")
 
-        return count
+        return success_count, failed_list

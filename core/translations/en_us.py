@@ -1,5 +1,4 @@
 
-
 en_US = {
     "_LANG_NAME": "English",
     # Menus
@@ -50,12 +49,31 @@ en_US = {
     "No changes to save in selected files.": "No changes to save in selected files.",
     "Convert to:": "Convert to:",
     "Conversion completed with errors.": "Conversion completed with errors.",
+    "Saving... {:.1f}%": "Saving... {:.1f}%",
     "Failed files:": "Failed files:",
     "Converted {} file(s) to {}": "Converted {} file(s) to {}",
     "No files needed conversion.": "No files needed conversion.",
     "Applying metadata...": "Applying metadata...",
     "Applied metadata to {} files.": "Applied metadata to {} files.",
     "Failed to apply metadata: {}": "Failed to apply metadata: {}",
+    "Scraping completed with errors.": "Scraping completed with errors.",
+    "Scraping Completed": "Scraping Completed",
+    
+    # Bangumi Settings
+    "Bangumi Settings": "Bangumi Settings",
+    "Access Token": "Access Token",
+    "Enter your Bangumi Access Token to increase rate limits and access NSFW content.": "Enter your Bangumi Access Token to access NSFW (R18) content.",
+    "Show Token": "Show Token",
+    "Hide Token": "Hide Token",
+    "Test Token": "Test Token",
+    "Testing...": "Testing...",
+    "Please enter a token first.": "Please enter a token first.",
+    "Token is valid!\n\nUser: {}\nID: {}": "Token is valid!\n\nUser: {}\nID: {}",
+    "Invalid token. Please check and try again.": "Invalid token. Please check and try again.",
+    "Token test failed (HTTP {}).": "Token test failed (HTTP {}).",
+    "Connection failed: {}": "Connection failed: {}",
+    "token_guide_html": "You need to <a href='https://bgm.tv/login'>log in to Bangumi</a> first, then <a href='https://next.bgm.tv/demo/access-token'>get your Access Token here</a>.",
+    "Save": "Save",
     
     # Update Dialog
     "Check for Updates on Startup": "Check for Updates on Startup",
@@ -82,8 +100,8 @@ en_US = {
     "Loading... {}/{}": "Loading... {}/{}",
     "Loaded {} files": "Loaded {} files",
     "Selected {} files": "Selected {} files",
-    "Saving... {:.1f}%": "Saving... {:.1f}%",
     
+    # About & Help
     "About ComicMeta Editor": "About ComicMeta Editor",
     
     # Table Columns
@@ -209,6 +227,7 @@ en_US = {
     </ul>
     
     <p><b>Developer:</b> DAZAO</p>
+    <p><b>GitHub:</b> <a href="https://github.com/veon0630/ComicMetaEditor">veon0630/ComicMetaEditor</a></p>
     <p><b>Data Source:</b> <a href="https://bgm.tv">Bangumi</a></p>
     <p>Copyright © 2025 DAZAO</p>
     """

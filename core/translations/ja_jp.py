@@ -57,6 +57,24 @@ ja_JP = {
     "Applying metadata...": "メタデータを適用中...",
     "Applied metadata to {} files.": "{} ファイルにメタデータを適用しました。",
     "Failed to apply metadata: {}": "メタデータの適用に失敗しました：{}",
+    "Scraping completed with errors.": "エラーが発生しましたが、スクレイピングが完了しました。",
+    "Scraping Completed": "スクレイピング完了",
+    
+    # Bangumi Settings
+    "Bangumi Settings": "Bangumi 設定",
+    "Access Token": "アクセストークン",
+    "Enter your Bangumi Access Token to increase rate limits and access NSFW content.": "Bangumiアクセストークンを入力して、NSFW (R18) コンテンツにアクセスできます。",
+    "Show Token": "トークンを表示",
+    "Hide Token": "トークンを隠す",
+    "Test Token": "トークンをテスト",
+    "Testing...": "テスト中...",
+    "Please enter a token first.": "先にトークンを入力してください。",
+    "Token is valid!\n\nUser: {}\nID: {}": "トークンは有効です！\n\nユーザー: {}\nID: {}",
+    "Invalid token. Please check and try again.": "トークンが無効です。確認して再試行してください。",
+    "Token test failed (HTTP {}).": "トークン・テストに失敗しました (HTTP {})。",
+    "Connection failed: {}": "接続に失敗しました：{}",
+    "token_guide_html": "まず<a href='https://bgm.tv/login'>Bangumiにログイン</a>してから、<a href='https://next.bgm.tv/demo/access-token'>こちらでアクセストークンを取得</a>してください。",
+    "Save": "保存",
     
     # Update Dialog
     "Check for Updates on Startup": "起動時に更新を確認",
@@ -209,6 +227,7 @@ ja_JP = {
     </ul>
     
     <p><b>開発者:</b> DAZAO</p>
+    <p><b>GitHub:</b> <a href="https://github.com/veon0630/ComicMetaEditor">veon0630/ComicMetaEditor</a></p>
     <p><b>データソース:</b> <a href="https://bgm.tv">Bangumi</a></p>
     <p>Copyright © 2025 DAZAO</p>
     """
